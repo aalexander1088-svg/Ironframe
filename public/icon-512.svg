@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="80" fill="#08080a"/>
+  <rect x="40" y="40" width="432" height="432" rx="64" fill="none" stroke="#c45c3e" stroke-width="6" opacity="0.3"/>
+  <text x="256" y="290" text-anchor="middle" font-family="system-ui,-apple-system,sans-serif" font-weight="900" font-size="192" fill="#e8e6e1" letter-spacing="-5">I<tspan fill="#c45c3e">F</tspan></text>
+  <rect x="96" y="348" width="320" height="6" rx="3" fill="#c45c3e" opacity="0.6"/>
+</svg>
