@@ -196,6 +196,28 @@ export default function WorkoutTracker() {
         </div>
       </div>
 
+      {prevVol > 0 && todayVol >= 0 && (() => {
+        const pct = Math.min((todayVol / prevVol) * 100, 150);
+        const beat = todayVol >= prevVol;
+        const barColor = beat ? "linear-gradient(90deg,#4a8033,#6abf47)" : "linear-gradient(90deg,#c45c3e,#d4784a)";
+        const borderColor = beat ? "#3a6630" : "#c45c3e33";
+        const labelColor = beat ? "#6abf47" : "#c45c3e";
+        return (
+          <div style={{ ...S.volTarget, borderColor }}>
+            <div style={{ ...S.volTargetLabel, color: labelColor }}>
+              {beat ? "NEW RECORD" : "BEAT YOUR BEST"}
+            </div>
+            <div style={S.volTargetBar}>
+              <div style={{ ...S.volTargetFill, width: `${Math.min(pct, 100)}%`, background: barColor, boxShadow: beat ? "0 0 8px #6abf4744" : "0 0 8px #c45c3e33" }} />
+            </div>
+            <div style={S.volTargetStats}>
+              <span style={{ color: "#999" }}>{todayVol.toLocaleString()} / {prevVol.toLocaleString()}</span>
+              <span style={{ color: labelColor, fontWeight: 700 }}>{pct.toFixed(0)}%</span>
+            </div>
+          </div>
+        );
+      })()}
+
       {restRemaining > 0 && (
         <div style={S.restBanner}>
           <span style={S.restLabel}>REST</span>
@@ -332,15 +354,59 @@ export default function WorkoutTracker() {
         })}
       </div>
 
-      {doneEx === totalEx && (
-        <div style={S.complete}>
-          <div style={{ fontSize: 16, fontWeight: 800, color: "#6abf47", letterSpacing: 2 }}>SESSION COMPLETE</div>
-          <div style={{ color: "#777", fontSize: 11, marginTop: 4 }}>
-            Total Volume: {todayVol.toLocaleString()} lbs
-            {delta !== null && <span style={{ color: Number(delta) >= 0 ? "#6abf47" : "#c45c3e", marginLeft: 6 }}>({Number(delta) >= 0 ? "+" : ""}{delta}%)</span>}
+      {doneEx === totalEx && (() => {
+        // Count PRs this session
+        let weightPRs = 0, volPRs = 0;
+        const topLifts = [];
+        exercises.forEach((ex) => {
+          let heaviest = null;
+          for (let i = 1; i <= ex.sets; i++) {
+            const d = getSetData(ex.id, i);
+            if (d) {
+              const pr = isPR(logData, ex.id, d.weight, d.reps, todayKey);
+              if (pr.weightPR) weightPRs++;
+              if (pr.volumePR) volPRs++;
+              if (!heaviest || d.weight > heaviest.weight) heaviest = d;
+            }
+          }
+          if (heaviest) topLifts.push({ name: ex.name, weight: heaviest.weight, reps: heaviest.reps });
+        });
+        const nextDayIdx = (currentDay + 1) % DAYS.length;
+        const nextDayName = DAYS[nextDayIdx];
+
+        return (
+          <div style={S.complete}>
+            <div style={S.completeTitle}>SESSION COMPLETE</div>
+            <div style={S.completeVol}>
+              Total Volume: {todayVol.toLocaleString()} lbs
+              {delta !== null && <span style={{ color: Number(delta) >= 0 ? "#6abf47" : "#c45c3e", marginLeft: 6, fontWeight: 700 }}>({Number(delta) >= 0 ? "+" : ""}{delta}%)</span>}
+            </div>
+
+            {(weightPRs > 0 || volPRs > 0) && (
+              <div style={S.recapSection}>
+                <div style={S.recapLabel}>PRs THIS SESSION</div>
+                {weightPRs > 0 && <div style={S.recapRow}><span style={{ color: "#f0c040" }}>Weight PRs</span><span style={{ color: "#f0c040", fontWeight: 700 }}>{weightPRs}</span></div>}
+                {volPRs > 0 && <div style={S.recapRow}><span style={{ color: "#d4784a" }}>Volume PRs</span><span style={{ color: "#d4784a", fontWeight: 700 }}>{volPRs}</span></div>}
+              </div>
+            )}
+
+            <div style={S.recapSection}>
+              <div style={S.recapLabel}>TOP LIFTS</div>
+              {topLifts.map((l) => (
+                <div key={l.name} style={S.recapRow}>
+                  <span style={{ color: "#999", flex: 1 }}>{l.name}</span>
+                  <span style={{ color: "#f0eeea", fontWeight: 700 }}>{l.weight}<span style={{ color: "#666", fontWeight: 400 }}> x{l.reps}</span></span>
+                </div>
+              ))}
+            </div>
+
+            <div style={S.recapNext}>
+              <div style={{ fontSize: 8, color: "#555", letterSpacing: 1.5, fontWeight: 700, marginBottom: 4 }}>NEXT UP</div>
+              <div style={{ fontSize: 12, color: "#c45c3e", fontWeight: 700 }}>{nextDayName}</div>
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       <div style={S.footer}>Day 7 — Rest & Recover</div>
       </>}
@@ -434,71 +500,82 @@ function History({ eid, logData, today }) {
 
 const S = {
   container: { fontFamily: "'JetBrains Mono','SF Mono','Fira Code',monospace", background: "#08080a", color: "#e8e6e1", minHeight: "100vh", maxWidth: 520, margin: "0 auto", paddingBottom: 40 },
-  loading: { display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", background: "#08080a", color: "#555", fontFamily: "monospace" },
-  header: { padding: "24px 20px 14px", borderBottom: "1px solid #151518" },
+  loading: { display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", background: "#08080a", color: "#c45c3e", fontFamily: "monospace", fontSize: 14, letterSpacing: 2 },
+  header: { padding: "24px 20px 14px", borderBottom: "1px solid #1a1a1f", background: "linear-gradient(180deg, #0e0c0a 0%, #08080a 100%)" },
   headerTop: { display: "flex", justifyContent: "space-between", alignItems: "center" },
-  title: { margin: 0, fontSize: 22, fontWeight: 800, letterSpacing: 3, color: "#e8e6e1" },
-  accent: { color: "#c45c3e" },
-  dateTag: { fontSize: 11, color: "#555", background: "#111114", padding: "4px 10px", borderRadius: 4 },
-  subtitle: { fontSize: 10, color: "#3a3a3f", marginTop: 5, letterSpacing: 1.5, textTransform: "uppercase" },
-  pageSelector: { display: "flex", gap: 3, padding: "12px 14px 0" },
-  pageBtn: { flex: 1, background: "#0d0d10", border: "1px solid #1a1a1f", borderRadius: 6, color: "#555", padding: "10px 2px", fontSize: 11, cursor: "pointer", fontFamily: "inherit", fontWeight: 700, letterSpacing: 1.5, textAlign: "center" },
-  pageBtnActive: { background: "#1a1510", border: "1px solid #c45c3e", color: "#c45c3e" },
-  daySelector: { display: "flex", gap: 3, padding: "12px 14px" },
-  dayBtn: { flex: 1, background: "#0d0d10", border: "1px solid #1a1a1f", borderRadius: 6, color: "#555", padding: "10px 2px", fontSize: 12, cursor: "pointer", fontFamily: "inherit", fontWeight: 700 },
-  dayBtnActive: { background: "#1a1510", border: "1px solid #c45c3e", color: "#c45c3e" },
+  title: { margin: 0, fontSize: 24, fontWeight: 900, letterSpacing: 4, color: "#f0eeea" },
+  accent: { color: "#c45c3e", textShadow: "0 0 12px #c45c3e66, 0 0 24px #c45c3e22" },
+  dateTag: { fontSize: 11, color: "#888", background: "#111114", padding: "4px 10px", borderRadius: 4, border: "1px solid #1a1a1f" },
+  subtitle: { fontSize: 10, color: "#4a4a50", marginTop: 5, letterSpacing: 1.5, textTransform: "uppercase" },
+  pageSelector: { display: "flex", gap: 4, padding: "12px 14px 0" },
+  pageBtn: { flex: 1, background: "#0d0d10", border: "1px solid #222228", borderRadius: 8, color: "#666", padding: "11px 2px", fontSize: 11, cursor: "pointer", fontFamily: "inherit", fontWeight: 700, letterSpacing: 1.5, textAlign: "center", transition: "all 0.2s" },
+  pageBtnActive: { background: "linear-gradient(180deg, #1f1710 0%, #161210 100%)", border: "1px solid #c45c3e", color: "#c45c3e", boxShadow: "0 0 12px #c45c3e22, inset 0 1px 0 #c45c3e22" },
+  daySelector: { display: "flex", gap: 4, padding: "12px 14px" },
+  dayBtn: { flex: 1, background: "#0d0d10", border: "1px solid #222228", borderRadius: 8, color: "#666", padding: "11px 2px", fontSize: 12, cursor: "pointer", fontFamily: "inherit", fontWeight: 700, transition: "all 0.2s" },
+  dayBtnActive: { background: "linear-gradient(180deg, #1f1710 0%, #161210 100%)", border: "1px solid #c45c3e", color: "#c45c3e", boxShadow: "0 0 12px #c45c3e22" },
   dayHeader: { padding: "6px 20px 14px" },
-  dayTitle: { margin: "0 0 8px", fontSize: 14, fontWeight: 700, color: "#aaa" },
-  progressBar: { height: 3, background: "#151518", borderRadius: 2, overflow: "hidden" },
-  progressFill: { height: "100%", background: "linear-gradient(90deg,#c45c3e,#d4784a)", borderRadius: 2, transition: "width 0.4s" },
-  statsRow: { display: "flex", justifyContent: "space-between", marginTop: 6 },
-  statLeft: { fontSize: 10, color: "#555" },
-  statRight: { fontSize: 10, color: "#777", fontVariantNumeric: "tabular-nums" },
-  restBanner: { display: "flex", alignItems: "center", justifyContent: "center", gap: 14, background: "#1a1510", border: "1px solid #c45c3e33", margin: "0 14px 10px", borderRadius: 8, padding: "12px 20px" },
-  restLabel: { fontSize: 11, color: "#c45c3e", fontWeight: 700, letterSpacing: 2 },
-  restTime: { fontSize: 26, fontWeight: 800, color: "#e8e6e1", fontVariantNumeric: "tabular-nums" },
-  skipBtn: { background: "none", border: "1px solid #333", color: "#888", padding: "4px 12px", borderRadius: 4, cursor: "pointer", fontFamily: "inherit", fontSize: 10, letterSpacing: 1 },
-  exList: { padding: "0 14px", display: "flex", flexDirection: "column", gap: 5 },
-  exCard: { background: "#0d0d10", border: "1px solid #1a1a1f", borderRadius: 8, overflow: "hidden" },
-  warmupCard: { background: "#0d0d10", border: "1px solid #c45c3e22", borderRadius: 8, overflow: "hidden" },
-  warmupDone: { borderColor: "#253320", background: "#0b0e0a" },
-  warmupHeader: { display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", padding: "12px 14px", background: "none", border: "none", color: "#e8e6e1", cursor: "pointer", fontFamily: "inherit", textAlign: "left" },
-  warmupTitle: { fontSize: 13, fontWeight: 700, color: "#d4784a", letterSpacing: 0.5 },
-  warmupBody: { padding: "0 14px 10px", borderTop: "1px solid #1a1510" },
-  warmupMove: { display: "flex", alignItems: "flex-start", gap: 10, padding: "8px 4px", width: "100%", background: "none", border: "none", borderBottom: "1px solid #111114", cursor: "pointer", fontFamily: "inherit", textAlign: "left", transition: "opacity 0.2s" },
+  dayTitle: { margin: "0 0 8px", fontSize: 15, fontWeight: 800, color: "#e8e6e1", letterSpacing: 0.5 },
+  progressBar: { height: 5, background: "#151518", borderRadius: 3, overflow: "hidden" },
+  progressFill: { height: "100%", background: "linear-gradient(90deg,#c45c3e,#d4784a,#e89050)", borderRadius: 3, transition: "width 0.4s", boxShadow: "0 0 8px #c45c3e44" },
+  statsRow: { display: "flex", justifyContent: "space-between", marginTop: 8 },
+  statLeft: { fontSize: 10, color: "#777" },
+  statRight: { fontSize: 10, color: "#999", fontVariantNumeric: "tabular-nums" },
+  volTarget: { margin: "0 14px 10px", padding: "12px 14px", borderRadius: 8, border: "1px solid", overflow: "hidden" },
+  volTargetLabel: { fontSize: 8, fontWeight: 700, letterSpacing: 1.5, marginBottom: 6 },
+  volTargetBar: { height: 6, background: "#151518", borderRadius: 3, overflow: "hidden", marginBottom: 4 },
+  volTargetFill: { height: "100%", borderRadius: 3, transition: "width 0.3s" },
+  volTargetStats: { display: "flex", justifyContent: "space-between", fontSize: 10 },
+  restBanner: { display: "flex", alignItems: "center", justifyContent: "center", gap: 16, background: "linear-gradient(180deg, #1f1510 0%, #151010 100%)", border: "2px solid #c45c3e44", margin: "0 14px 10px", borderRadius: 10, padding: "14px 20px", boxShadow: "0 0 20px #c45c3e11" },
+  restLabel: { fontSize: 12, color: "#c45c3e", fontWeight: 800, letterSpacing: 3, textShadow: "0 0 8px #c45c3e44" },
+  restTime: { fontSize: 30, fontWeight: 900, color: "#f0eeea", fontVariantNumeric: "tabular-nums", textShadow: "0 0 10px #c45c3e33" },
+  skipBtn: { background: "none", border: "1px solid #444", color: "#999", padding: "5px 14px", borderRadius: 6, cursor: "pointer", fontFamily: "inherit", fontSize: 10, letterSpacing: 1, fontWeight: 600 },
+  exList: { padding: "0 14px", display: "flex", flexDirection: "column", gap: 6 },
+  exCard: { background: "#0d0d10", border: "1px solid #222228", borderRadius: 10, overflow: "hidden", transition: "border-color 0.3s" },
+  warmupCard: { background: "#0d0d10", border: "1px solid #c45c3e33", borderRadius: 10, overflow: "hidden" },
+  warmupDone: { borderColor: "#3a6630", background: "#0b0e0a" },
+  warmupHeader: { display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", padding: "14px 16px", background: "none", border: "none", color: "#e8e6e1", cursor: "pointer", fontFamily: "inherit", textAlign: "left" },
+  warmupTitle: { fontSize: 13, fontWeight: 800, color: "#d4784a", letterSpacing: 0.5 },
+  warmupBody: { padding: "0 16px 12px", borderTop: "1px solid #1a1510" },
+  warmupMove: { display: "flex", alignItems: "flex-start", gap: 10, padding: "9px 4px", width: "100%", background: "none", border: "none", borderBottom: "1px solid #151518", cursor: "pointer", fontFamily: "inherit", textAlign: "left", transition: "opacity 0.2s" },
   warmupCheck: { width: 22, height: 22, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, flexShrink: 0, marginTop: 1 },
-  warmupMoveName: { fontSize: 12, fontWeight: 600, color: "#ccc" },
-  warmupMoveDetail: { fontSize: 10, color: "#666", marginTop: 1 },
-  exCardDone: { borderColor: "#253320", background: "#0b0e0a" },
-  exHead: { display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", padding: "12px 14px", background: "none", border: "none", color: "#e8e6e1", cursor: "pointer", fontFamily: "inherit", textAlign: "left" },
-  exLeft: { display: "flex", alignItems: "center", gap: 10 },
-  check: { width: 32, height: 32, borderRadius: "50%", border: "2px solid #282830", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, color: "#555", flexShrink: 0 },
-  checkDone: { borderColor: "#4a8033", color: "#6abf47", background: "#1a2a14", fontSize: 14 },
-  exName: { fontSize: 13, fontWeight: 600 },
-  exMeta: { fontSize: 10, color: "#555", marginTop: 1 },
-  exBody: { padding: "0 14px 14px", borderTop: "1px solid #151518" },
-  exNote: { fontSize: 10, color: "#7a6a50", fontStyle: "italic", padding: "8px 0 6px", borderBottom: "1px dashed #1a1a1f", marginBottom: 4 },
-  olBanner: { display: "flex", flexDirection: "column", gap: 2, padding: "7px 10px", margin: "4px 0 2px", borderRadius: 5, border: "1px solid" },
-  setRow: { display: "flex", alignItems: "center", gap: 8, padding: "6px 0", borderBottom: "1px solid #111114" },
-  setRowIn: { display: "flex", gap: 8, padding: "6px 0", borderBottom: "1px solid #111114" },
-  sn: { fontSize: 10, color: "#444", width: 26, flexShrink: 0 },
-  logged: { flex: 1, display: "flex", alignItems: "center", gap: 5 },
-  lw: { fontSize: 14, fontWeight: 700, color: "#e8e6e1" },
-  lx: { fontSize: 10, color: "#444" },
-  lr: { fontSize: 14, fontWeight: 700, color: "#c45c3e" },
-  prW: { fontSize: 9, color: "#f0c040", marginLeft: 4, fontWeight: 700 },
-  prV: { fontSize: 9, color: "#d4784a", marginLeft: 4, fontWeight: 700 },
-  editBtn: { background: "none", border: "1px solid #222", color: "#666", borderRadius: 4, padding: "3px 7px", cursor: "pointer", fontFamily: "inherit", fontSize: 12 },
-  clrBtn: { background: "none", border: "1px solid #2a1a1a", color: "#884040", borderRadius: 4, padding: "3px 7px", cursor: "pointer", fontFamily: "inherit", fontSize: 11 },
-  sugRow: { display: "flex", alignItems: "center", gap: 6, marginBottom: 3 },
+  warmupMoveName: { fontSize: 12, fontWeight: 600, color: "#ddd" },
+  warmupMoveDetail: { fontSize: 10, color: "#777", marginTop: 1 },
+  exCardDone: { borderColor: "#3a6630", background: "#0a0d09", boxShadow: "0 0 8px #3a663011" },
+  exHead: { display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", padding: "14px 16px", background: "none", border: "none", color: "#e8e6e1", cursor: "pointer", fontFamily: "inherit", textAlign: "left" },
+  exLeft: { display: "flex", alignItems: "center", gap: 12 },
+  check: { width: 36, height: 36, borderRadius: "50%", border: "2px solid #333340", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, color: "#666", flexShrink: 0, transition: "all 0.3s" },
+  checkDone: { borderColor: "#4a8033", color: "#6abf47", background: "#1a2a14", fontSize: 15, boxShadow: "0 0 8px #4a803322" },
+  exName: { fontSize: 14, fontWeight: 700, color: "#f0eeea" },
+  exMeta: { fontSize: 10, color: "#777", marginTop: 2 },
+  exBody: { padding: "0 16px 16px", borderTop: "1px solid #1a1a1f" },
+  exNote: { fontSize: 10, color: "#8a7a60", fontStyle: "italic", padding: "10px 0 8px", borderBottom: "1px dashed #222228", marginBottom: 6 },
+  olBanner: { display: "flex", flexDirection: "column", gap: 3, padding: "8px 12px", margin: "6px 0 4px", borderRadius: 6, border: "1px solid" },
+  setRow: { display: "flex", alignItems: "center", gap: 8, padding: "8px 0", borderBottom: "1px solid #151518" },
+  setRowIn: { display: "flex", gap: 8, padding: "8px 0", borderBottom: "1px solid #151518" },
+  sn: { fontSize: 10, color: "#666", width: 26, flexShrink: 0, fontWeight: 600 },
+  logged: { flex: 1, display: "flex", alignItems: "center", gap: 6 },
+  lw: { fontSize: 15, fontWeight: 800, color: "#f0eeea" },
+  lx: { fontSize: 10, color: "#555" },
+  lr: { fontSize: 15, fontWeight: 800, color: "#c45c3e" },
+  prW: { fontSize: 9, color: "#f0c040", marginLeft: 6, fontWeight: 800, background: "#2a2210", padding: "2px 6px", borderRadius: 3, letterSpacing: 0.5 },
+  prV: { fontSize: 9, color: "#d4784a", marginLeft: 6, fontWeight: 800, background: "#1f1510", padding: "2px 6px", borderRadius: 3, letterSpacing: 0.5 },
+  editBtn: { background: "none", border: "1px solid #2a2a30", color: "#777", borderRadius: 5, padding: "4px 8px", cursor: "pointer", fontFamily: "inherit", fontSize: 12 },
+  clrBtn: { background: "none", border: "1px solid #2a1a1a", color: "#994444", borderRadius: 5, padding: "4px 8px", cursor: "pointer", fontFamily: "inherit", fontSize: 11 },
+  sugRow: { display: "flex", alignItems: "center", gap: 6, marginBottom: 4 },
   sugTag: { fontSize: 9, fontWeight: 800, letterSpacing: 1 },
-  sugDetail: { fontSize: 9, color: "#555" },
-  inputs: { display: "flex", alignItems: "center", gap: 5 },
-  inp: { width: 52, background: "#08080a", border: "1px solid #222", borderRadius: 4, color: "#e8e6e1", padding: "7px 5px", fontSize: 13, fontFamily: "inherit", textAlign: "center", outline: "none" },
-  logBtn: { background: "#c45c3e", border: "none", color: "#fff", padding: "7px 11px", borderRadius: 4, cursor: "pointer", fontFamily: "inherit", fontSize: 10, fontWeight: 700, letterSpacing: 1 },
-  hist: { marginTop: 8, padding: "6px 0 0", borderTop: "1px dashed #1a1a1f" },
-  histLabel: { fontSize: 8, color: "#444", letterSpacing: 1.5, marginBottom: 3 },
-  histRow: { display: "flex", gap: 8, fontSize: 10, color: "#555", padding: "2px 0" },
-  complete: { margin: "14px", padding: "18px", borderRadius: 8, textAlign: "center", background: "#0b0e0a", border: "1px solid #253320" },
-  footer: { textAlign: "center", padding: "24px 20px", fontSize: 10, color: "#222", letterSpacing: 1, textTransform: "uppercase" },
+  sugDetail: { fontSize: 9, color: "#666" },
+  inputs: { display: "flex", alignItems: "center", gap: 6 },
+  inp: { width: 56, background: "#08080a", border: "1px solid #2a2a30", borderRadius: 6, color: "#f0eeea", padding: "8px 5px", fontSize: 14, fontFamily: "inherit", textAlign: "center", outline: "none", fontWeight: 600 },
+  logBtn: { background: "linear-gradient(180deg, #d4603e 0%, #b84830 100%)", border: "none", color: "#fff", padding: "8px 14px", borderRadius: 6, cursor: "pointer", fontFamily: "inherit", fontSize: 10, fontWeight: 800, letterSpacing: 1.5, boxShadow: "0 0 12px #c45c3e33", textShadow: "0 1px 2px #00000044" },
+  hist: { marginTop: 10, padding: "8px 0 0", borderTop: "1px dashed #222228" },
+  histLabel: { fontSize: 8, color: "#555", letterSpacing: 1.5, marginBottom: 4, fontWeight: 700 },
+  histRow: { display: "flex", gap: 8, fontSize: 10, color: "#666", padding: "3px 0" },
+  complete: { margin: "14px", padding: "20px", borderRadius: 10, background: "linear-gradient(180deg, #0f140e 0%, #0a0d09 100%)", border: "1px solid #3a6630", boxShadow: "0 0 20px #3a663015" },
+  completeTitle: { fontSize: 18, fontWeight: 900, color: "#6abf47", letterSpacing: 3, textShadow: "0 0 12px #6abf4744", textAlign: "center" },
+  completeVol: { color: "#999", fontSize: 12, marginTop: 6, textAlign: "center" },
+  recapSection: { marginTop: 14, paddingTop: 12, borderTop: "1px solid #1a2a14" },
+  recapLabel: { fontSize: 8, color: "#555", letterSpacing: 1.5, fontWeight: 700, marginBottom: 6 },
+  recapRow: { display: "flex", justifyContent: "space-between", padding: "4px 0", fontSize: 11 },
+  recapNext: { marginTop: 14, padding: "10px 12px", background: "#0d0d10", borderRadius: 6, border: "1px solid #222228", textAlign: "center" },
+  footer: { textAlign: "center", padding: "24px 20px", fontSize: 10, color: "#2a2a30", letterSpacing: 1, textTransform: "uppercase" },
 };
