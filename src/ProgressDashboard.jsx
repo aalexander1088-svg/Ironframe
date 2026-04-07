@@ -54,7 +54,7 @@ export default function ProgressDashboard({ logData }) {
           </div>
           <div style={PS.streakDivider} />
           <div style={PS.streakItem}>
-            <div style={PS.streakNum}>{streaks.thisWeekSessions}<span style={{ fontSize: 10, color: "#555" }}>/6</span></div>
+            <div style={PS.streakNum}>{streaks.thisWeekSessions}<span style={{ fontSize: 10, color: "#7a6a55" }}>/6</span></div>
             <div style={PS.streakLabel}>this week</div>
           </div>
           <div style={PS.streakDivider} />
@@ -105,7 +105,7 @@ export default function ProgressDashboard({ logData }) {
               <div key={i} style={PS.prRow}>
                 <span style={PS.prDate}>{pr.date.slice(5)}</span>
                 <span style={PS.prName}>{pr.exerciseName}</span>
-                <span style={{ ...PS.prBadge, background: pr.type === "weight" ? "#2a1a10" : "#1a1a10", color: pr.type === "weight" ? "#f0c040" : "#d4784a" }}>
+                <span style={{ ...PS.prBadge, background: pr.type === "weight" ? "linear-gradient(180deg, #4a3812 0%, #2a1f08 100%)" : "linear-gradient(180deg, #3a1e10 0%, #1a0e08 100%)", border: pr.type === "weight" ? "1px solid #6a5018" : "1px solid #6a3220", color: pr.type === "weight" ? "#ffd060" : "#ffaa78" }}>
                   {pr.type === "weight" ? `${pr.value} lbs` : `${pr.value} vol`}
                 </span>
               </div>
@@ -139,17 +139,17 @@ export default function ProgressDashboard({ logData }) {
             </div>
             {weeklySummaries.map((w, i) => (
               <div key={i} style={PS.weekRow}>
-                <span style={{ width: 50, color: "#666" }}>{w.weekLabel}</span>
-                <span style={{ width: 30, textAlign: "center", color: w.sessions >= 5 ? "#6abf47" : w.sessions >= 3 ? "#d4784a" : "#555" }}>
+                <span style={{ width: 50, color: "#a89880", fontWeight: 600 }}>{w.weekLabel}</span>
+                <span style={{ width: 30, textAlign: "center", fontWeight: 700, color: w.sessions >= 5 ? "#9bd070" : w.sessions >= 3 ? "#ffaa78" : "#7a6a55" }}>
                   {w.sessions}
                 </span>
-                <span style={{ flex: 1, textAlign: "right", color: "#888" }}>
+                <span style={{ flex: 1, textAlign: "right", color: "#e8e1d3", fontWeight: 600 }}>
                   {w.totalVolume > 0 ? `${(w.totalVolume / 1000).toFixed(1)}k` : "—"}
                 </span>
-                <span style={{ width: 50, textAlign: "right", color: "#666" }}>
+                <span style={{ width: 50, textAlign: "right", color: "#a89880", fontWeight: 600 }}>
                   {w.avgVolume > 0 ? `${(w.avgVolume / 1000).toFixed(1)}k` : "—"}
                 </span>
-                <span style={{ width: 30, textAlign: "right", color: w.prs > 0 ? "#f0c040" : "#333" }}>
+                <span style={{ width: 30, textAlign: "right", fontWeight: 700, color: w.prs > 0 ? "#ffd060" : "#5a4838" }}>
                   {w.prs > 0 ? w.prs : "—"}
                 </span>
               </div>
@@ -163,27 +163,27 @@ export default function ProgressDashboard({ logData }) {
 
 const PS = {
   container: { padding: "0 14px 40px" },
-  rangeBar: { display: "flex", gap: 4, marginBottom: 12 },
-  rangeBtn: { flex: 1, background: "#0d0d10", border: "1px solid #222228", borderRadius: 8, color: "#666", padding: "9px 2px", fontSize: 11, cursor: "pointer", fontFamily: "inherit", fontWeight: 700, letterSpacing: 1, transition: "all 0.2s" },
-  rangeBtnActive: { background: "linear-gradient(180deg, #1f1710 0%, #161210 100%)", border: "1px solid #c45c3e", color: "#c45c3e", boxShadow: "0 0 12px #c45c3e22" },
-  card: { background: "#0d0d10", border: "1px solid #222228", borderRadius: 10, padding: "16px", marginBottom: 10 },
-  cardTitle: { fontSize: 9, color: "#555", letterSpacing: 1.5, marginBottom: 12, fontWeight: 800 },
+  rangeBar: { display: "flex", gap: 5, marginBottom: 12 },
+  rangeBtn: { flex: 1, background: "linear-gradient(180deg, #1f1a14 0%, #14100c 50%, #0c0805 100%)", border: "1px solid #3a2c20", borderRadius: 6, color: "#c8b89a", padding: "10px 2px", fontSize: 11, cursor: "pointer", fontFamily: "inherit", fontWeight: 800, letterSpacing: 1.2, transition: "all 0.2s", boxShadow: "inset 0 1px 0 #4a3a2a, 0 2px 4px #00000099, 0 1px 0 #00000066" },
+  rangeBtnActive: { background: "linear-gradient(180deg, #4a2412 0%, #2e1610 50%, #1a0c08 100%)", border: "1px solid #c45c3e", color: "#ffc89c", boxShadow: "inset 0 1px 0 #d4784a88, 0 0 16px #c45c3e55, 0 2px 6px #00000099, inset 0 -1px 0 #00000088", textShadow: "0 0 10px #c45c3e88, 0 1px 0 #00000099" },
+  card: { background: "linear-gradient(180deg, #1a140e 0%, #0e0a07 100%)", border: "1px solid #2c241c", borderRadius: 10, padding: "18px", marginBottom: 12, boxShadow: "inset 0 1px 0 #3a2c20, 0 2px 8px #00000099, 0 1px 0 #00000066" },
+  cardTitle: { fontSize: 10, color: "#e87b4d", letterSpacing: 2, marginBottom: 14, fontWeight: 800, textShadow: "0 1px 0 #00000099, 0 0 8px #c45c3e44" },
   streakRow: { display: "flex", alignItems: "center", justifyContent: "space-around" },
   streakItem: { textAlign: "center" },
-  streakNum: { fontSize: 26, fontWeight: 900, color: "#f0eeea" },
-  streakLabel: { fontSize: 9, color: "#666", marginTop: 3, letterSpacing: 0.5 },
-  streakDivider: { width: 1, height: 34, background: "#222228" },
-  select: { width: "100%", background: "#08080a", border: "1px solid #2a2a30", borderRadius: 6, color: "#f0eeea", padding: "9px 8px", fontSize: 12, fontFamily: "inherit", marginBottom: 12, outline: "none", fontWeight: 600 },
-  chartLabel: { fontSize: 9, color: "#666", marginBottom: 6, letterSpacing: 0.5 },
-  legendRow: { display: "flex", gap: 14, marginBottom: 10 },
-  legendDot: (color) => ({ fontSize: 10, color, fontWeight: 700, display: "flex", alignItems: "center", gap: 4 }),
-  empty: { color: "#444", fontSize: 11, textAlign: "center", padding: "20px 0" },
+  streakNum: { fontSize: 28, fontWeight: 900, color: "#f5ede0", textShadow: "0 1px 0 #00000099, 0 0 12px #c45c3e22" },
+  streakLabel: { fontSize: 9, color: "#a89880", marginTop: 4, letterSpacing: 1, fontWeight: 600, textTransform: "uppercase" },
+  streakDivider: { width: 1, height: 36, background: "linear-gradient(180deg, transparent, #3a2c20, transparent)" },
+  select: { width: "100%", background: "linear-gradient(180deg, #050302 0%, #0a0805 100%)", border: "1px solid #4a3a2a", borderRadius: 5, color: "#f5ede0", padding: "10px 10px", fontSize: 12, fontFamily: "inherit", marginBottom: 14, outline: "none", fontWeight: 700, boxShadow: "inset 0 2px 4px #00000099, inset 0 -1px 0 #2a201a" },
+  chartLabel: { fontSize: 10, color: "#c8b89a", marginBottom: 6, letterSpacing: 1, fontWeight: 600 },
+  legendRow: { display: "flex", gap: 16, marginBottom: 10 },
+  legendDot: (color) => ({ fontSize: 10, color, fontWeight: 700, display: "flex", alignItems: "center", gap: 4, textShadow: `0 0 8px ${color}55, 0 1px 0 #00000099` }),
+  empty: { color: "#7a6a55", fontSize: 11, textAlign: "center", padding: "22px 0", fontStyle: "italic" },
   prList: { maxHeight: 260, overflowY: "auto" },
-  prRow: { display: "flex", alignItems: "center", gap: 8, padding: "6px 0", borderBottom: "1px solid #151518", fontSize: 11 },
-  prDate: { color: "#666", width: 42, flexShrink: 0, fontWeight: 600 },
-  prName: { flex: 1, color: "#aaa", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 10 },
-  prBadge: { padding: "3px 8px", borderRadius: 4, fontSize: 9, fontWeight: 800, flexShrink: 0, letterSpacing: 0.5 },
+  prRow: { display: "flex", alignItems: "center", gap: 8, padding: "7px 0", borderBottom: "1px solid #1a1612", fontSize: 11 },
+  prDate: { color: "#a89880", width: 42, flexShrink: 0, fontWeight: 700 },
+  prName: { flex: 1, color: "#e8e1d3", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 10, fontWeight: 600 },
+  prBadge: { padding: "3px 8px", borderRadius: 4, fontSize: 9, fontWeight: 800, flexShrink: 0, letterSpacing: 0.5, boxShadow: "inset 0 1px 0 #ffffff15, 0 1px 2px #00000088" },
   weekTable: { fontSize: 10 },
-  weekHeader: { display: "flex", gap: 6, padding: "0 0 8px", borderBottom: "1px solid #222228", color: "#444", fontSize: 8, letterSpacing: 1, fontWeight: 800 },
-  weekRow: { display: "flex", gap: 6, padding: "6px 0", borderBottom: "1px solid #111114" },
+  weekHeader: { display: "flex", gap: 6, padding: "0 0 8px", borderBottom: "1px solid #2c241c", color: "#a89880", fontSize: 8, letterSpacing: 1.2, fontWeight: 800 },
+  weekRow: { display: "flex", gap: 6, padding: "7px 0", borderBottom: "1px solid #1a1612" },
 };

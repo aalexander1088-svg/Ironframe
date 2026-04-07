@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { PROGRAM, DAYS, WARMUPS, DAY_WARMUP_MAP, STORAGE_KEY, getToday, getWeekStart, addDaysISO, parseRepRange } from "./constants";
 
 function findSessionDateForDay(logData, exercises, weekStart) {
@@ -83,6 +83,8 @@ export default function WorkoutTracker() {
   const [restRemaining, setRestRemaining] = useState(0);
   const [loaded, setLoaded] = useState(false);
   const [saveStatus, setSaveStatus] = useState("idle"); // idle | saving | saved | error
+  const [celebrating, setCelebrating] = useState(false);
+  const wasComplete = useRef(null);
 
   useEffect(() => {
     let data = null;
@@ -167,6 +169,17 @@ export default function WorkoutTracker() {
 
   const totalEx = exercises.length;
   const doneEx = exercises.filter((e) => countDone(e.id, e.sets) === e.sets).length;
+
+  useEffect(() => {
+    const isComplete = totalEx > 0 && doneEx === totalEx;
+    if (wasComplete.current === false && isComplete) {
+      setCelebrating(true);
+      const t = setTimeout(() => setCelebrating(false), 4500);
+      wasComplete.current = isComplete;
+      return () => clearTimeout(t);
+    }
+    wasComplete.current = isComplete;
+  }, [doneEx, totalEx, currentDay]);
   const todayVol = getTodayVolume();
   const prevVol = getPrevVolume();
   const delta = prevVol > 0 ? ((todayVol - prevVol) / prevVol * 100).toFixed(1) : null;
@@ -175,6 +188,68 @@ export default function WorkoutTracker() {
 
   return (
     <div style={S.container}>
+      <style>{`
+@keyframes ironforge-ember {
+  0%, 100% { box-shadow: inset 0 1px 0 #6abf4799, 0 0 14px #6abf4755, 0 2px 4px #00000099; }
+  50% { box-shadow: inset 0 1px 0 #6abf47cc, 0 0 22px #6abf4799, 0 2px 4px #00000099; }
+}
+@keyframes ironforge-ignite {
+  0% { box-shadow: 0 0 0 #6abf4700, inset 0 1px 0 #6abf4733, 0 4px 16px #00000099; transform: scale(0.96); }
+  20% { box-shadow: 0 0 60px #ffd060cc, 0 0 120px #e87b4d88, inset 0 1px 0 #ffe8a0aa, 0 4px 24px #00000099; transform: scale(1.02); border-color: #ffd060; }
+  45% { box-shadow: 0 0 80px #f5a060aa, 0 0 140px #c45c3e66, inset 0 1px 0 #ffd060cc, 0 4px 20px #00000099; border-color: #f5a060; }
+  100% { box-shadow: 0 0 36px #6abf4744, inset 0 1px 0 #6abf4799, 0 4px 16px #00000099; transform: scale(1); border-color: #6abf47; }
+}
+@keyframes ironforge-shine {
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+@keyframes ironforge-spark {
+  0% { transform: translateY(0) scale(1); opacity: 0; }
+  10% { opacity: 1; }
+  100% { transform: translateY(-80px) scale(0.3); opacity: 0; }
+}
+.ironforge-celebrate {
+  animation: ironforge-ignite 1.6s cubic-bezier(0.2, 0.8, 0.2, 1) 1;
+}
+.ironforge-celebrate-text {
+  background: linear-gradient(90deg, #6abf47 0%, #ffd060 25%, #f5a060 50%, #ffd060 75%, #6abf47 100%);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: ironforge-shine 2.4s linear 1;
+}
+.ironforge-spark {
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #ffd060 0%, #e87b4d 60%, transparent 100%);
+  box-shadow: 0 0 8px #ffd060, 0 0 16px #e87b4d;
+  pointer-events: none;
+}
+.ironforge-spark.s1 { left: 12%; bottom: 10px; animation: ironforge-spark 1.6s ease-out 0.1s 1 forwards; }
+.ironforge-spark.s2 { left: 28%; bottom: 14px; animation: ironforge-spark 2.0s ease-out 0.0s 1 forwards; }
+.ironforge-spark.s3 { left: 46%; bottom: 6px;  animation: ironforge-spark 1.8s ease-out 0.3s 1 forwards; }
+.ironforge-spark.s4 { left: 62%; bottom: 12px; animation: ironforge-spark 2.2s ease-out 0.15s 1 forwards; }
+.ironforge-spark.s5 { left: 78%; bottom: 8px;  animation: ironforge-spark 1.9s ease-out 0.4s 1 forwards; }
+.ironforge-spark.s6 { left: 88%; bottom: 14px; animation: ironforge-spark 2.1s ease-out 0.25s 1 forwards; }
+@keyframes ironforge-logbtn-sweep {
+  0% { transform: translateX(-120%) skewX(-20deg); }
+  100% { transform: translateX(220%) skewX(-20deg); }
+}
+.ironforge-logbtn::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 40%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, #ffffff44, transparent);
+  animation: ironforge-logbtn-sweep 2.8s ease-in-out infinite;
+  pointer-events: none;
+}
+      `}</style>
       <div style={S.header}>
         <div style={S.headerTop}>
           <h1 style={S.title}>IRON<span style={S.accent}>FRAME</span></h1>
@@ -404,8 +479,18 @@ export default function WorkoutTracker() {
         const nextDayName = DAYS[nextDayIdx];
 
         return (
-          <div style={S.complete}>
-            <div style={S.completeTitle}>SESSION COMPLETE</div>
+          <div style={S.complete} className={celebrating ? "ironforge-celebrate" : ""}>
+            {celebrating && (
+              <>
+                <span className="ironforge-spark s1" />
+                <span className="ironforge-spark s2" />
+                <span className="ironforge-spark s3" />
+                <span className="ironforge-spark s4" />
+                <span className="ironforge-spark s5" />
+                <span className="ironforge-spark s6" />
+              </>
+            )}
+            <div style={S.completeTitle} className={celebrating ? "ironforge-celebrate-text" : ""}>SESSION FORGED</div>
             <div style={S.completeVol}>
               Total Volume: {todayVol.toLocaleString()} lbs
               {delta !== null && <span style={{ color: Number(delta) >= 0 ? "#6abf47" : "#c45c3e", marginLeft: 6, fontWeight: 700 }}>({Number(delta) >= 0 ? "+" : ""}{delta}%)</span>}
@@ -493,7 +578,7 @@ function SetRow({ sn, data, sug, pr, repRange, onLog, onClear }) {
           <input type="number" placeholder="lbs" value={w} onChange={(e) => setW(e.target.value)} style={S.inp} />
           <span style={{ color: "#444", fontSize: 11 }}>×</span>
           <input type="number" placeholder="reps" value={r} onChange={(e) => setR(e.target.value)} style={S.inp} />
-          <button onClick={() => { if (w && r) onLog(w, r); }} style={{ ...S.logBtn, opacity: w && r ? 1 : 0.3 }}>LOG</button>
+          <button onClick={() => { if (w && r) onLog(w, r); }} className="ironforge-logbtn" style={{ ...S.logBtn, opacity: w && r ? 1 : 0.3 }}>LOG</button>
         </div>
       </div>
     </div>
@@ -528,85 +613,85 @@ function History({ eid, logData, today }) {
 }
 
 const S = {
-  container: { fontFamily: "'JetBrains Mono','SF Mono','Fira Code',monospace", background: "#08080a", color: "#e8e6e1", minHeight: "100vh", maxWidth: 520, margin: "0 auto", paddingBottom: 40 },
-  loading: { display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", background: "#08080a", color: "#c45c3e", fontFamily: "monospace", fontSize: 14, letterSpacing: 2 },
-  header: { padding: "24px 20px 14px", borderBottom: "1px solid #1a1a1f", background: "linear-gradient(180deg, #0e0c0a 0%, #08080a 100%)" },
+  container: { fontFamily: "'JetBrains Mono','SF Mono','Fira Code',monospace", background: "radial-gradient(ellipse 80% 60% at 50% 0%, #1a120c 0%, #0c0805 50%, #060403 100%)", color: "#e8e1d3", minHeight: "100vh", maxWidth: 520, margin: "0 auto", paddingBottom: 40 },
+  loading: { display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", background: "#060403", color: "#e87b4d", fontFamily: "monospace", fontSize: 14, letterSpacing: 2 },
+  header: { padding: "26px 20px 16px", borderBottom: "1px solid #2a201a", background: "linear-gradient(180deg, #1c140e 0%, #0e0a07 100%)", boxShadow: "inset 0 1px 0 #3a2c20, inset 0 -1px 0 #2a201a, 0 4px 14px #00000099" },
   headerTop: { display: "flex", justifyContent: "space-between", alignItems: "center" },
-  title: { margin: 0, fontSize: 24, fontWeight: 900, letterSpacing: 4, color: "#f0eeea" },
-  accent: { color: "#c45c3e", textShadow: "0 0 12px #c45c3e66, 0 0 24px #c45c3e22" },
-  dateTag: { fontSize: 11, color: "#888", background: "#111114", padding: "4px 10px", borderRadius: 4, border: "1px solid #1a1a1f" },
-  subtitle: { fontSize: 10, color: "#4a4a50", marginTop: 5, letterSpacing: 1.5, textTransform: "uppercase" },
-  pageSelector: { display: "flex", gap: 4, padding: "12px 14px 0" },
-  pageBtn: { flex: 1, background: "#0d0d10", border: "1px solid #222228", borderRadius: 8, color: "#666", padding: "11px 2px", fontSize: 11, cursor: "pointer", fontFamily: "inherit", fontWeight: 700, letterSpacing: 1.5, textAlign: "center", transition: "all 0.2s" },
-  pageBtnActive: { background: "linear-gradient(180deg, #1f1710 0%, #161210 100%)", border: "1px solid #c45c3e", color: "#c45c3e", boxShadow: "0 0 12px #c45c3e22, inset 0 1px 0 #c45c3e22" },
-  daySelector: { display: "flex", gap: 4, padding: "12px 14px" },
-  dayBtn: { flex: 1, background: "#0d0d10", border: "1px solid #222228", borderRadius: 8, color: "#666", padding: "11px 2px", fontSize: 12, cursor: "pointer", fontFamily: "inherit", fontWeight: 700, transition: "all 0.2s" },
-  dayBtnActive: { background: "linear-gradient(180deg, #1f1710 0%, #161210 100%)", border: "1px solid #c45c3e", color: "#c45c3e", boxShadow: "0 0 12px #c45c3e22" },
-  dayBtnDone: { background: "linear-gradient(180deg, #131c10 0%, #0f1a0c 100%)", border: "1px solid #4a8033", color: "#6abf47", boxShadow: "0 0 10px #6abf4722" },
-  dayBtnDoneActive: { background: "linear-gradient(180deg, #1a2a14 0%, #15240f 100%)", border: "1px solid #6abf47", color: "#9be07a", boxShadow: "0 0 14px #6abf4744, inset 0 1px 0 #6abf4733" },
-  dayHeader: { padding: "6px 20px 14px" },
-  dayTitle: { margin: "0 0 8px", fontSize: 15, fontWeight: 800, color: "#e8e6e1", letterSpacing: 0.5 },
-  progressBar: { height: 5, background: "#151518", borderRadius: 3, overflow: "hidden" },
-  progressFill: { height: "100%", background: "linear-gradient(90deg,#c45c3e,#d4784a,#e89050)", borderRadius: 3, transition: "width 0.4s", boxShadow: "0 0 8px #c45c3e44" },
-  statsRow: { display: "flex", justifyContent: "space-between", marginTop: 8 },
-  statLeft: { fontSize: 10, color: "#777" },
-  statRight: { fontSize: 10, color: "#999", fontVariantNumeric: "tabular-nums" },
-  volTarget: { margin: "0 14px 10px", padding: "12px 14px", borderRadius: 8, border: "1px solid", overflow: "hidden" },
-  volTargetLabel: { fontSize: 8, fontWeight: 700, letterSpacing: 1.5, marginBottom: 6 },
-  volTargetBar: { height: 6, background: "#151518", borderRadius: 3, overflow: "hidden", marginBottom: 4 },
+  title: { margin: 0, fontSize: 26, fontWeight: 900, letterSpacing: 5, color: "#f5ede0", textShadow: "0 1px 0 #00000099, 0 0 18px #c45c3e22" },
+  accent: { color: "#e87b4d", textShadow: "0 0 14px #c45c3e88, 0 0 28px #c45c3e44, 0 1px 0 #00000099" },
+  dateTag: { fontSize: 11, color: "#c8b89a", background: "linear-gradient(180deg, #1a1612 0%, #0e0a07 100%)", padding: "5px 12px", borderRadius: 4, border: "1px solid #2c241c", boxShadow: "inset 0 1px 0 #3a2c20, 0 1px 2px #00000099", fontWeight: 600, letterSpacing: 0.5 },
+  subtitle: { fontSize: 10, color: "#8a7a60", marginTop: 6, letterSpacing: 2, textTransform: "uppercase", fontWeight: 600 },
+  pageSelector: { display: "flex", gap: 6, padding: "14px 14px 0" },
+  pageBtn: { flex: 1, background: "linear-gradient(180deg, #1f1a14 0%, #14100c 50%, #0c0805 100%)", border: "1px solid #3a2c20", borderRadius: 6, color: "#c8b89a", padding: "13px 2px", fontSize: 11, cursor: "pointer", fontFamily: "inherit", fontWeight: 800, letterSpacing: 1.8, textAlign: "center", transition: "all 0.2s", boxShadow: "inset 0 1px 0 #4a3a2a, 0 2px 4px #00000099, 0 1px 0 #00000066" },
+  pageBtnActive: { background: "linear-gradient(180deg, #4a2412 0%, #2e1610 50%, #1a0c08 100%)", border: "1px solid #c45c3e", color: "#ffc89c", boxShadow: "inset 0 1px 0 #d4784a88, 0 0 18px #c45c3e55, 0 2px 6px #00000099, inset 0 -1px 0 #00000088", textShadow: "0 0 10px #c45c3e88, 0 1px 0 #00000099" },
+  daySelector: { display: "flex", gap: 5, padding: "14px 14px" },
+  dayBtn: { flex: 1, background: "linear-gradient(180deg, #1f1a14 0%, #14100c 50%, #0c0805 100%)", border: "1px solid #3a2c20", borderRadius: 6, color: "#c8b89a", padding: "13px 2px", fontSize: 12, cursor: "pointer", fontFamily: "inherit", fontWeight: 800, letterSpacing: 1, transition: "all 0.2s", boxShadow: "inset 0 1px 0 #4a3a2a, 0 2px 4px #00000099, 0 1px 0 #00000066" },
+  dayBtnActive: { background: "linear-gradient(180deg, #4a2412 0%, #2e1610 50%, #1a0c08 100%)", border: "1px solid #c45c3e", color: "#ffc89c", boxShadow: "inset 0 1px 0 #d4784a88, 0 0 18px #c45c3e55, 0 2px 6px #00000099, inset 0 -1px 0 #00000088", textShadow: "0 0 10px #c45c3e88, 0 1px 0 #00000099" },
+  dayBtnDone: { background: "linear-gradient(180deg, #1f2c14 0%, #14200d 50%, #0a140a 100%)", border: "1px solid #5a9038", color: "#9bd070", boxShadow: "inset 0 1px 0 #6abf4766, 0 0 14px #6abf4733, 0 2px 4px #00000099, inset 0 -1px 0 #00000088", textShadow: "0 0 8px #6abf4766, 0 1px 0 #00000099" },
+  dayBtnDoneActive: { background: "linear-gradient(180deg, #2e3e1a 0%, #1f2c14 50%, #15200d 100%)", border: "1px solid #6abf47", color: "#bfee98", boxShadow: "inset 0 1px 0 #6abf47aa, 0 0 22px #6abf4766, 0 2px 6px #00000099, inset 0 -1px 0 #00000088", textShadow: "0 0 12px #6abf4799, 0 1px 0 #00000099" },
+  dayHeader: { padding: "10px 20px 14px" },
+  dayTitle: { margin: "0 0 10px", fontSize: 16, fontWeight: 800, color: "#f0e8d8", letterSpacing: 1, textShadow: "0 1px 0 #00000099" },
+  progressBar: { height: 6, background: "linear-gradient(180deg, #050302 0%, #0a0805 100%)", borderRadius: 3, overflow: "hidden", boxShadow: "inset 0 2px 3px #000000cc, inset 0 -1px 0 #2a201a", border: "1px solid #1a140e" },
+  progressFill: { height: "100%", background: "linear-gradient(90deg,#c45c3e,#e87b4d,#f5a060)", borderRadius: 2, transition: "width 0.4s", boxShadow: "0 0 14px #c45c3e88, inset 0 1px 0 #ffffff44" },
+  statsRow: { display: "flex", justifyContent: "space-between", marginTop: 10 },
+  statLeft: { fontSize: 10, color: "#a89880", fontWeight: 600 },
+  statRight: { fontSize: 10, color: "#c8b89a", fontVariantNumeric: "tabular-nums", fontWeight: 600 },
+  volTarget: { margin: "0 14px 10px", padding: "12px 14px", borderRadius: 8, border: "1px solid", overflow: "hidden", boxShadow: "inset 0 1px 0 #ffffff0c, 0 2px 6px #00000088" },
+  volTargetLabel: { fontSize: 9, fontWeight: 800, letterSpacing: 1.5, marginBottom: 6 },
+  volTargetBar: { height: 6, background: "#050302", borderRadius: 3, overflow: "hidden", marginBottom: 4, boxShadow: "inset 0 2px 3px #000000cc" },
   volTargetFill: { height: "100%", borderRadius: 3, transition: "width 0.3s" },
   volTargetStats: { display: "flex", justifyContent: "space-between", fontSize: 10 },
-  restBanner: { display: "flex", alignItems: "center", justifyContent: "center", gap: 16, background: "linear-gradient(180deg, #1f1510 0%, #151010 100%)", border: "2px solid #c45c3e44", margin: "0 14px 10px", borderRadius: 10, padding: "14px 20px", boxShadow: "0 0 20px #c45c3e11" },
-  restLabel: { fontSize: 12, color: "#c45c3e", fontWeight: 800, letterSpacing: 3, textShadow: "0 0 8px #c45c3e44" },
-  restTime: { fontSize: 30, fontWeight: 900, color: "#f0eeea", fontVariantNumeric: "tabular-nums", textShadow: "0 0 10px #c45c3e33" },
-  skipBtn: { background: "none", border: "1px solid #444", color: "#999", padding: "5px 14px", borderRadius: 6, cursor: "pointer", fontFamily: "inherit", fontSize: 10, letterSpacing: 1, fontWeight: 600 },
-  exList: { padding: "0 14px", display: "flex", flexDirection: "column", gap: 6 },
-  exCard: { background: "#0d0d10", border: "1px solid #222228", borderRadius: 10, overflow: "hidden", transition: "border-color 0.3s" },
-  warmupCard: { background: "#0d0d10", border: "1px solid #c45c3e33", borderRadius: 10, overflow: "hidden" },
-  warmupDone: { borderColor: "#3a6630", background: "#0b0e0a" },
-  warmupHeader: { display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", padding: "14px 16px", background: "none", border: "none", color: "#e8e6e1", cursor: "pointer", fontFamily: "inherit", textAlign: "left" },
-  warmupTitle: { fontSize: 13, fontWeight: 800, color: "#d4784a", letterSpacing: 0.5 },
-  warmupBody: { padding: "0 16px 12px", borderTop: "1px solid #1a1510" },
-  warmupMove: { display: "flex", alignItems: "flex-start", gap: 10, padding: "9px 4px", width: "100%", background: "none", border: "none", borderBottom: "1px solid #151518", cursor: "pointer", fontFamily: "inherit", textAlign: "left", transition: "opacity 0.2s" },
+  restBanner: { display: "flex", alignItems: "center", justifyContent: "center", gap: 18, background: "linear-gradient(180deg, #2e1812 0%, #1a0e0a 100%)", border: "1px solid #c45c3e88", margin: "0 14px 10px", borderRadius: 10, padding: "16px 22px", boxShadow: "0 0 28px #c45c3e33, inset 0 1px 0 #d4784a55, inset 0 -1px 0 #00000088, 0 4px 12px #00000099" },
+  restLabel: { fontSize: 12, color: "#ffaa78", fontWeight: 800, letterSpacing: 3, textShadow: "0 0 12px #c45c3e88, 0 1px 0 #00000099" },
+  restTime: { fontSize: 32, fontWeight: 900, color: "#f5ede0", fontVariantNumeric: "tabular-nums", textShadow: "0 0 14px #c45c3e88, 0 1px 0 #00000099" },
+  skipBtn: { background: "linear-gradient(180deg, #1c1814 0%, #0e0a07 100%)", border: "1px solid #5a4838", color: "#c8b89a", padding: "6px 16px", borderRadius: 5, cursor: "pointer", fontFamily: "inherit", fontSize: 10, letterSpacing: 1.5, fontWeight: 700, boxShadow: "inset 0 1px 0 #4a3a2a, 0 2px 4px #00000088" },
+  exList: { padding: "0 14px", display: "flex", flexDirection: "column", gap: 8 },
+  exCard: { background: "linear-gradient(180deg, #1a140e 0%, #0e0a07 100%)", border: "1px solid #2c241c", borderRadius: 8, overflow: "hidden", transition: "border-color 0.3s, box-shadow 0.3s", boxShadow: "inset 0 1px 0 #3a2c20, 0 2px 8px #00000099, 0 1px 0 #00000066" },
+  warmupCard: { background: "linear-gradient(180deg, #1c140e 0%, #0e0a07 100%)", border: "1px solid #c45c3e55", borderRadius: 8, overflow: "hidden", boxShadow: "inset 0 1px 0 #c45c3e22, 0 2px 8px #00000099" },
+  warmupDone: { borderColor: "#5a9038", background: "linear-gradient(180deg, #1a2614 0%, #0a140a 100%)", boxShadow: "inset 0 1px 0 #6abf4744, 0 2px 8px #00000099" },
+  warmupHeader: { display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", padding: "16px 18px", background: "none", border: "none", color: "#e8e1d3", cursor: "pointer", fontFamily: "inherit", textAlign: "left" },
+  warmupTitle: { fontSize: 13, fontWeight: 800, color: "#ffaa78", letterSpacing: 1, textShadow: "0 1px 0 #00000099, 0 0 8px #c45c3e44" },
+  warmupBody: { padding: "0 18px 14px", borderTop: "1px solid #2a1f18" },
+  warmupMove: { display: "flex", alignItems: "flex-start", gap: 10, padding: "10px 4px", width: "100%", background: "none", border: "none", borderBottom: "1px solid #1a1612", cursor: "pointer", fontFamily: "inherit", textAlign: "left", transition: "opacity 0.2s" },
   warmupCheck: { width: 22, height: 22, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, flexShrink: 0, marginTop: 1 },
-  warmupMoveName: { fontSize: 12, fontWeight: 600, color: "#ddd" },
-  warmupMoveDetail: { fontSize: 10, color: "#777", marginTop: 1 },
-  exCardDone: { borderColor: "#3a6630", background: "#0a0d09", boxShadow: "0 0 8px #3a663011" },
-  exHead: { display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", padding: "14px 16px", background: "none", border: "none", color: "#e8e6e1", cursor: "pointer", fontFamily: "inherit", textAlign: "left" },
-  exLeft: { display: "flex", alignItems: "center", gap: 12 },
-  check: { width: 36, height: 36, borderRadius: "50%", border: "2px solid #333340", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, color: "#666", flexShrink: 0, transition: "all 0.3s" },
-  checkDone: { borderColor: "#4a8033", color: "#6abf47", background: "#1a2a14", fontSize: 15, boxShadow: "0 0 8px #4a803322" },
-  exName: { fontSize: 14, fontWeight: 700, color: "#f0eeea" },
-  exMeta: { fontSize: 10, color: "#777", marginTop: 2 },
-  exBody: { padding: "0 16px 16px", borderTop: "1px solid #1a1a1f" },
-  exNote: { fontSize: 10, color: "#8a7a60", fontStyle: "italic", padding: "10px 0 8px", borderBottom: "1px dashed #222228", marginBottom: 6 },
-  olBanner: { display: "flex", flexDirection: "column", gap: 3, padding: "8px 12px", margin: "6px 0 4px", borderRadius: 6, border: "1px solid" },
-  setRow: { display: "flex", alignItems: "center", gap: 8, padding: "8px 0", borderBottom: "1px solid #151518" },
-  setRowIn: { display: "flex", gap: 8, padding: "8px 0", borderBottom: "1px solid #151518" },
-  sn: { fontSize: 10, color: "#666", width: 26, flexShrink: 0, fontWeight: 600 },
+  warmupMoveName: { fontSize: 12, fontWeight: 600, color: "#e8e1d3" },
+  warmupMoveDetail: { fontSize: 10, color: "#9a8c75", marginTop: 2 },
+  exCardDone: { borderColor: "#5a9038", background: "linear-gradient(180deg, #1a2614 0%, #0a140a 100%)", boxShadow: "inset 0 1px 0 #6abf4744, 0 0 18px #6abf4722, 0 2px 8px #00000099" },
+  exHead: { display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", padding: "16px 18px", background: "none", border: "none", color: "#e8e1d3", cursor: "pointer", fontFamily: "inherit", textAlign: "left" },
+  exLeft: { display: "flex", alignItems: "center", gap: 14 },
+  check: { width: 38, height: 38, borderRadius: "50%", border: "2px solid #5a4838", background: "linear-gradient(180deg, #1c1814 0%, #0e0a07 100%)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, color: "#a89880", flexShrink: 0, transition: "all 0.3s", fontWeight: 700, boxShadow: "inset 0 1px 0 #3a2c20, 0 2px 4px #00000099" },
+  checkDone: { borderColor: "#6abf47", color: "#bfee98", background: "linear-gradient(180deg, #2e3e1a 0%, #14200d 100%)", fontSize: 16, boxShadow: "inset 0 1px 0 #6abf4799, 0 0 14px #6abf4755, 0 2px 4px #00000099", textShadow: "0 0 10px #6abf4799", animation: "ironforge-ember 2.4s ease-in-out infinite" },
+  exName: { fontSize: 14, fontWeight: 700, color: "#f0e8d8", letterSpacing: 0.3 },
+  exMeta: { fontSize: 10, color: "#a89880", marginTop: 3, fontWeight: 500 },
+  exBody: { padding: "0 18px 16px", borderTop: "1px solid #2a1f18" },
+  exNote: { fontSize: 10, color: "#c8a878", fontStyle: "italic", padding: "10px 0 8px", borderBottom: "1px dashed #2c241c", marginBottom: 6 },
+  olBanner: { display: "flex", flexDirection: "column", gap: 3, padding: "9px 13px", margin: "8px 0 4px", borderRadius: 6, border: "1px solid", boxShadow: "inset 0 1px 0 #ffffff0c, 0 1px 3px #00000088" },
+  setRow: { display: "flex", alignItems: "center", gap: 8, padding: "10px 0", borderBottom: "1px solid #1a1612" },
+  setRowIn: { display: "flex", gap: 8, padding: "10px 0", borderBottom: "1px solid #1a1612" },
+  sn: { fontSize: 10, color: "#a89880", width: 26, flexShrink: 0, fontWeight: 700, letterSpacing: 0.5 },
   logged: { flex: 1, display: "flex", alignItems: "center", gap: 6 },
-  lw: { fontSize: 15, fontWeight: 800, color: "#f0eeea" },
-  lx: { fontSize: 10, color: "#555" },
-  lr: { fontSize: 15, fontWeight: 800, color: "#c45c3e" },
-  prW: { fontSize: 9, color: "#f0c040", marginLeft: 6, fontWeight: 800, background: "#2a2210", padding: "2px 6px", borderRadius: 3, letterSpacing: 0.5 },
-  prV: { fontSize: 9, color: "#d4784a", marginLeft: 6, fontWeight: 800, background: "#1f1510", padding: "2px 6px", borderRadius: 3, letterSpacing: 0.5 },
-  editBtn: { background: "none", border: "1px solid #2a2a30", color: "#777", borderRadius: 5, padding: "4px 8px", cursor: "pointer", fontFamily: "inherit", fontSize: 12 },
-  clrBtn: { background: "none", border: "1px solid #2a1a1a", color: "#994444", borderRadius: 5, padding: "4px 8px", cursor: "pointer", fontFamily: "inherit", fontSize: 11 },
-  sugRow: { display: "flex", alignItems: "center", gap: 6, marginBottom: 4 },
-  sugTag: { fontSize: 9, fontWeight: 800, letterSpacing: 1 },
-  sugDetail: { fontSize: 9, color: "#666" },
+  lw: { fontSize: 16, fontWeight: 800, color: "#f5ede0", textShadow: "0 1px 0 #00000099" },
+  lx: { fontSize: 11, color: "#7a6a55" },
+  lr: { fontSize: 16, fontWeight: 800, color: "#e87b4d", textShadow: "0 0 10px #c45c3e55, 0 1px 0 #00000099" },
+  prW: { fontSize: 9, color: "#ffd060", marginLeft: 6, fontWeight: 800, background: "linear-gradient(180deg, #4a3812 0%, #2a1f08 100%)", padding: "3px 7px", borderRadius: 3, letterSpacing: 0.5, border: "1px solid #6a5018", boxShadow: "inset 0 1px 0 #ffd06044, 0 1px 2px #00000088" },
+  prV: { fontSize: 9, color: "#ffaa78", marginLeft: 6, fontWeight: 800, background: "linear-gradient(180deg, #3a1e10 0%, #1a0e08 100%)", padding: "3px 7px", borderRadius: 3, letterSpacing: 0.5, border: "1px solid #6a3220", boxShadow: "inset 0 1px 0 #c45c3e44, 0 1px 2px #00000088" },
+  editBtn: { background: "linear-gradient(180deg, #1c1814 0%, #0e0a07 100%)", border: "1px solid #5a4838", color: "#c8b89a", borderRadius: 5, padding: "5px 9px", cursor: "pointer", fontFamily: "inherit", fontSize: 12, boxShadow: "inset 0 1px 0 #4a3a2a, 0 1px 3px #00000088" },
+  clrBtn: { background: "linear-gradient(180deg, #2a1414 0%, #1a0808 100%)", border: "1px solid #6a2828", color: "#e07878", borderRadius: 5, padding: "5px 9px", cursor: "pointer", fontFamily: "inherit", fontSize: 11, boxShadow: "inset 0 1px 0 #6a3030, 0 1px 3px #00000088" },
+  sugRow: { display: "flex", alignItems: "center", gap: 6, marginBottom: 5 },
+  sugTag: { fontSize: 9, fontWeight: 800, letterSpacing: 1, textShadow: "0 1px 0 #00000099" },
+  sugDetail: { fontSize: 9, color: "#9a8c75" },
   inputs: { display: "flex", alignItems: "center", gap: 6 },
-  inp: { width: 56, background: "#08080a", border: "1px solid #2a2a30", borderRadius: 6, color: "#f0eeea", padding: "8px 5px", fontSize: 14, fontFamily: "inherit", textAlign: "center", outline: "none", fontWeight: 600 },
-  logBtn: { background: "linear-gradient(180deg, #d4603e 0%, #b84830 100%)", border: "none", color: "#fff", padding: "8px 14px", borderRadius: 6, cursor: "pointer", fontFamily: "inherit", fontSize: 10, fontWeight: 800, letterSpacing: 1.5, boxShadow: "0 0 12px #c45c3e33", textShadow: "0 1px 2px #00000044" },
-  hist: { marginTop: 10, padding: "8px 0 0", borderTop: "1px dashed #222228" },
-  histLabel: { fontSize: 8, color: "#555", letterSpacing: 1.5, marginBottom: 4, fontWeight: 700 },
-  histRow: { display: "flex", gap: 8, fontSize: 10, color: "#666", padding: "3px 0" },
-  complete: { margin: "14px", padding: "20px", borderRadius: 10, background: "linear-gradient(180deg, #0f140e 0%, #0a0d09 100%)", border: "1px solid #3a6630", boxShadow: "0 0 20px #3a663015" },
-  completeTitle: { fontSize: 18, fontWeight: 900, color: "#6abf47", letterSpacing: 3, textShadow: "0 0 12px #6abf4744", textAlign: "center" },
-  completeVol: { color: "#999", fontSize: 12, marginTop: 6, textAlign: "center" },
-  recapSection: { marginTop: 14, paddingTop: 12, borderTop: "1px solid #1a2a14" },
-  recapLabel: { fontSize: 8, color: "#555", letterSpacing: 1.5, fontWeight: 700, marginBottom: 6 },
-  recapRow: { display: "flex", justifyContent: "space-between", padding: "4px 0", fontSize: 11 },
-  recapNext: { marginTop: 14, padding: "10px 12px", background: "#0d0d10", borderRadius: 6, border: "1px solid #222228", textAlign: "center" },
-  footer: { textAlign: "center", padding: "24px 20px", fontSize: 10, color: "#2a2a30", letterSpacing: 1, textTransform: "uppercase" },
+  inp: { width: 60, background: "linear-gradient(180deg, #050302 0%, #0a0805 100%)", border: "1px solid #4a3a2a", borderRadius: 5, color: "#f5ede0", padding: "9px 5px", fontSize: 14, fontFamily: "inherit", textAlign: "center", outline: "none", fontWeight: 700, boxShadow: "inset 0 2px 4px #00000099, inset 0 -1px 0 #2a201a" },
+  logBtn: { position: "relative", overflow: "hidden", background: "linear-gradient(180deg, #f08858 0%, #c45c3e 50%, #8a3018 100%)", border: "1px solid #6a2810", color: "#fff", padding: "9px 18px", borderRadius: 5, cursor: "pointer", fontFamily: "inherit", fontSize: 10, fontWeight: 900, letterSpacing: 1.8, boxShadow: "inset 0 1px 0 #ffaa7799, 0 0 16px #c45c3e66, 0 2px 6px #00000099, inset 0 -1px 0 #00000088", textShadow: "0 1px 2px #00000088" },
+  hist: { marginTop: 12, padding: "10px 0 0", borderTop: "1px dashed #2c241c" },
+  histLabel: { fontSize: 9, color: "#a89880", letterSpacing: 1.5, marginBottom: 5, fontWeight: 800 },
+  histRow: { display: "flex", gap: 8, fontSize: 10, color: "#9a8c75", padding: "3px 0", fontWeight: 500 },
+  complete: { position: "relative", overflow: "hidden", margin: "16px 14px", padding: "26px 22px", borderRadius: 12, background: "linear-gradient(180deg, #1f2c14 0%, #0f1a0c 100%)", border: "1px solid #6abf47", boxShadow: "0 0 36px #6abf4733, inset 0 1px 0 #6abf4766, 0 4px 16px #00000099, inset 0 -1px 0 #00000088" },
+  completeTitle: { fontSize: 20, fontWeight: 900, color: "#bfee98", letterSpacing: 4, textShadow: "0 0 16px #6abf47aa, 0 0 28px #6abf4755, 0 1px 0 #00000099", textAlign: "center" },
+  completeVol: { color: "#c8b89a", fontSize: 12, marginTop: 8, textAlign: "center", fontWeight: 600 },
+  recapSection: { marginTop: 16, paddingTop: 14, borderTop: "1px solid #2a3a1c" },
+  recapLabel: { fontSize: 9, color: "#8a9a78", letterSpacing: 1.5, fontWeight: 800, marginBottom: 6 },
+  recapRow: { display: "flex", justifyContent: "space-between", padding: "5px 0", fontSize: 11, color: "#c8b89a" },
+  recapNext: { marginTop: 14, padding: "12px 14px", background: "linear-gradient(180deg, #14100c 0%, #0a0805 100%)", borderRadius: 6, border: "1px solid #3a2c20", textAlign: "center", boxShadow: "inset 0 1px 0 #4a3a2a, 0 1px 3px #00000088" },
+  footer: { textAlign: "center", padding: "26px 20px", fontSize: 10, color: "#5a4838", letterSpacing: 2, textTransform: "uppercase", fontWeight: 700 },
 };
