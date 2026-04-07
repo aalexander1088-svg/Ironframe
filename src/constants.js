@@ -106,6 +106,21 @@ export function getToday() {
   return new Date().toISOString().slice(0, 10);
 }
 
+export function getWeekStart() {
+  const today = getToday();
+  const d = new Date(today + "T00:00:00Z");
+  const day = d.getUTCDay(); // 0 Sun..6 Sat
+  const diff = day === 0 ? -6 : 1 - day; // shift to Monday
+  d.setUTCDate(d.getUTCDate() + diff);
+  return d.toISOString().slice(0, 10);
+}
+
+export function addDaysISO(iso, n) {
+  const d = new Date(iso + "T00:00:00Z");
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+}
+
 export function parseRepRange(reps) {
   const clean = reps.replace(/\/leg|\/arm/g, "");
   const parts = clean.split("-").map(Number);

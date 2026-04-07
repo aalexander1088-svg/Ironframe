@@ -1,5 +1,28 @@
 import { useState, useEffect, useCallback } from "react";
-import { PROGRAM, DAYS, WARMUPS, DAY_WARMUP_MAP, STORAGE_KEY, getToday, parseRepRange } from "./constants";
+import { PROGRAM, DAYS, WARMUPS, DAY_WARMUP_MAP, STORAGE_KEY, getToday, getWeekStart, addDaysISO, parseRepRange } from "./constants";
+
+function findSessionDateForDay(logData, exercises, weekStart) {
+  const exIds = new Set(exercises.map((e) => e.id));
+  const weekEnd = addDaysISO(weekStart, 7);
+  const dates = new Set();
+  Object.keys(logData).forEach((key) => {
+    const [date, eid] = key.split("::");
+    if (exIds.has(eid) && date >= weekStart && date < weekEnd) dates.add(date);
+  });
+  const sorted = [...dates].sort().reverse();
+  return sorted[0] || null;
+}
+
+function isDayCompleteThisWeek(logData, exercises, weekStart) {
+  const sessionDate = findSessionDateForDay(logData, exercises, weekStart);
+  if (!sessionDate) return false;
+  return exercises.every((ex) => {
+    for (let i = 1; i <= ex.sets; i++) {
+      if (!logData[`${sessionDate}::${ex.id}::${i}`]) return false;
+    }
+    return true;
+  });
+}
 import ProgressDashboard from "./ProgressDashboard";
 
 function getLastSession(logData, exerciseId, totalSets, excludeDate) {
@@ -101,21 +124,23 @@ export default function WorkoutTracker() {
   }, [restRemaining]);
 
   const todayKey = getToday();
+  const weekStart = getWeekStart();
   const dayName = DAYS[currentDay];
   const exercises = PROGRAM[dayName];
+  const sessionDate = findSessionDateForDay(logData, exercises, weekStart) || todayKey;
 
   const gk = (date, eid, sn) => `${date}::${eid}::${sn}`;
-  const getSetData = (eid, sn) => logData[gk(todayKey, eid, sn)] || null;
+  const getSetData = (eid, sn) => logData[gk(sessionDate, eid, sn)] || null;
 
   const logSet = (eid, sn, w, r) => {
-    const updated = { ...logData, [gk(todayKey, eid, sn)]: { weight: Number(w), reps: Number(r), ts: Date.now() } };
+    const updated = { ...logData, [gk(sessionDate, eid, sn)]: { weight: Number(w), reps: Number(r), ts: Date.now() } };
     setLogData(updated);
     saveData(updated);
   };
 
   const clearSet = (eid, sn) => {
     const updated = { ...logData };
-    delete updated[gk(todayKey, eid, sn)];
+    delete updated[gk(sessionDate, eid, sn)];
     setLogData(updated);
     saveData(updated);
   };
@@ -136,7 +161,7 @@ export default function WorkoutTracker() {
   };
   const getPrevVolume = () => {
     let v = 0;
-    exercises.forEach((ex) => { const s = getLastSession(logData, ex.id, ex.sets, todayKey); if (s) s.sets.forEach((d) => (v += d.weight * d.reps)); });
+    exercises.forEach((ex) => { const s = getLastSession(logData, ex.id, ex.sets, sessionDate); if (s) s.sets.forEach((d) => (v += d.weight * d.reps)); });
     return v;
   };
 
@@ -157,7 +182,7 @@ export default function WorkoutTracker() {
             {saveStatus === "saving" && <span style={{ fontSize: 9, color: "#c45c3e" }}>saving...</span>}
             {saveStatus === "saved" && <span style={{ fontSize: 9, color: "#6abf47" }}>✓ saved</span>}
             {saveStatus === "error" && <span style={{ fontSize: 9, color: "#ff4444" }}>⚠ save failed</span>}
-            <div style={S.dateTag}>{todayKey}</div>
+            <div style={S.dateTag}>{sessionDate}</div>
           </div>
         </div>
         <div style={S.subtitle}>Push / Pull / Legs — Width & Mass</div>
@@ -172,12 +197,16 @@ export default function WorkoutTracker() {
 
       {page === "tracker" && <>
       <div style={S.daySelector}>
-        {DAYS.map((d, i) => (
-          <button key={i} onClick={() => { setCurrentDay(i); setActiveExercise(null); setWarmupOpen(false); setWarmupChecked({}); }}
-            style={{ ...S.dayBtn, ...(i === currentDay ? S.dayBtnActive : {}) }}>
-            {d.split("—")[0].trim().replace("Day ", "D")}
-          </button>
-        ))}
+        {DAYS.map((d, i) => {
+          const dayComplete = isDayCompleteThisWeek(logData, PROGRAM[d], weekStart);
+          const isActive = i === currentDay;
+          return (
+            <button key={i} onClick={() => { setCurrentDay(i); setActiveExercise(null); setWarmupOpen(false); setWarmupChecked({}); }}
+              style={{ ...S.dayBtn, ...(dayComplete ? S.dayBtnDone : {}), ...(isActive ? (dayComplete ? S.dayBtnDoneActive : S.dayBtnActive) : {}) }}>
+              {d.split("—")[0].trim().replace("Day ", "D")}{dayComplete ? " ✓" : ""}
+            </button>
+          );
+        })}
       </div>
 
       <div style={S.dayHeader}>
@@ -275,7 +304,7 @@ export default function WorkoutTracker() {
           const isOpen = activeExercise === ex.id;
           const isDone = done === ex.sets;
           const repRange = parseRepRange(ex.reps);
-          const last = getLastSession(logData, ex.id, ex.sets, todayKey);
+          const last = getLastSession(logData, ex.id, ex.sets, sessionDate);
 
           return (
             <div key={ex.id} style={{ ...S.exCard, ...(isDone ? S.exCardDone : {}) }}>
@@ -313,7 +342,7 @@ export default function WorkoutTracker() {
                   {Array.from({ length: ex.sets }, (_, i) => i + 1).map((sn) => {
                     const data = getSetData(ex.id, sn);
                     const baseSug = getOverloadSuggestion(last, repRange, ex.increment, sn);
-                    const pr = data ? isPR(logData, ex.id, data.weight, data.reps, todayKey) : null;
+                    const pr = data ? isPR(logData, ex.id, data.weight, data.reps, sessionDate) : null;
 
                     // Intra-session autoregulation: check previous sets TODAY
                     let sug = baseSug;
@@ -346,7 +375,7 @@ export default function WorkoutTracker() {
                     );
                   })}
 
-                  <History eid={ex.id} logData={logData} today={todayKey} />
+                  <History eid={ex.id} logData={logData} today={sessionDate} />
                 </div>
               )}
             </div>
@@ -513,6 +542,8 @@ const S = {
   daySelector: { display: "flex", gap: 4, padding: "12px 14px" },
   dayBtn: { flex: 1, background: "#0d0d10", border: "1px solid #222228", borderRadius: 8, color: "#666", padding: "11px 2px", fontSize: 12, cursor: "pointer", fontFamily: "inherit", fontWeight: 700, transition: "all 0.2s" },
   dayBtnActive: { background: "linear-gradient(180deg, #1f1710 0%, #161210 100%)", border: "1px solid #c45c3e", color: "#c45c3e", boxShadow: "0 0 12px #c45c3e22" },
+  dayBtnDone: { background: "linear-gradient(180deg, #131c10 0%, #0f1a0c 100%)", border: "1px solid #4a8033", color: "#6abf47", boxShadow: "0 0 10px #6abf4722" },
+  dayBtnDoneActive: { background: "linear-gradient(180deg, #1a2a14 0%, #15240f 100%)", border: "1px solid #6abf47", color: "#9be07a", boxShadow: "0 0 14px #6abf4744, inset 0 1px 0 #6abf4733" },
   dayHeader: { padding: "6px 20px 14px" },
   dayTitle: { margin: "0 0 8px", fontSize: 15, fontWeight: 800, color: "#e8e6e1", letterSpacing: 0.5 },
   progressBar: { height: 5, background: "#151518", borderRadius: 3, overflow: "hidden" },
