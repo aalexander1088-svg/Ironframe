@@ -24,6 +24,7 @@ function isDayCompleteThisWeek(logData, exercises, weekStart) {
   });
 }
 import ProgressDashboard from "./ProgressDashboard";
+import { supabaseEnabled, onAuthChange, signInWithEmail, signOut, fetchAllSets, syncDiff, mergeLogData } from "./supabase";
 
 function getLastSession(logData, exerciseId, totalSets, excludeDate) {
   const sessions = {};
@@ -85,6 +86,12 @@ export default function WorkoutTracker() {
   const [saveStatus, setSaveStatus] = useState("idle"); // idle | saving | saved | error
   const [celebrating, setCelebrating] = useState(false);
   const wasComplete = useRef(null);
+  const [authUser, setAuthUser] = useState(null);
+  const [syncStatus, setSyncStatus] = useState("idle"); // idle | syncing | synced | error
+  const [authPanelOpen, setAuthPanelOpen] = useState(false);
+  const [authEmail, setAuthEmail] = useState("");
+  const [authMsg, setAuthMsg] = useState("");
+  const lastSynced = useRef(null);
 
   useEffect(() => {
     let data = null;
@@ -115,7 +122,55 @@ export default function WorkoutTracker() {
       console.error("Save failed:", e);
       setSaveStatus("error");
     }
+    // Write-through to Supabase if signed in
+    if (supabaseEnabled && authUser) {
+      const prev = lastSynced.current || {};
+      setSyncStatus("syncing");
+      syncDiff(prev, data, authUser.id).then((ok) => {
+        if (ok !== false) {
+          lastSynced.current = data;
+          setSyncStatus("synced");
+          setTimeout(() => setSyncStatus("idle"), 1500);
+        } else {
+          setSyncStatus("error");
+        }
+      });
+    }
+  }, [authUser]);
+
+  // Auth listener
+  useEffect(() => {
+    if (!supabaseEnabled) return;
+    const unsub = onAuthChange((user) => {
+      setAuthUser(user);
+    });
+    return unsub;
   }, []);
+
+  // Restore from cloud on sign-in — bidirectional merge
+  useEffect(() => {
+    if (!supabaseEnabled || !authUser || !loaded) return;
+    let cancelled = false;
+    setSyncStatus("syncing");
+    fetchAllSets(authUser.id).then(async (cloud) => {
+      if (cancelled || !cloud) { setSyncStatus("error"); return; }
+      const merged = mergeLogData(logData, cloud);
+      // Persist merged state locally if it differs
+      if (JSON.stringify(merged) !== JSON.stringify(logData)) {
+        setLogData(merged);
+        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(merged)); } catch {}
+      }
+      // Push any local-only (or newer-local) sets up to the cloud
+      // by diffing cloud -> merged (anything cloud lacks gets upserted)
+      const ok = await syncDiff(cloud, merged, authUser.id);
+      if (cancelled) return;
+      lastSynced.current = merged;
+      setSyncStatus(ok === false ? "error" : "synced");
+      setTimeout(() => setSyncStatus("idle"), 1500);
+    });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authUser, loaded]);
 
   useEffect(() => {
     if (restRemaining <= 0) return;
@@ -257,11 +312,119 @@ export default function WorkoutTracker() {
             {saveStatus === "saving" && <span style={{ fontSize: 9, color: "#c45c3e" }}>saving...</span>}
             {saveStatus === "saved" && <span style={{ fontSize: 9, color: "#6abf47" }}>✓ saved</span>}
             {saveStatus === "error" && <span style={{ fontSize: 9, color: "#ff4444" }}>⚠ save failed</span>}
+            {supabaseEnabled && (
+              <button
+                onClick={() => setAuthPanelOpen((o) => !o)}
+                title={authUser ? `Signed in as ${authUser.email}` : "Back up to cloud"}
+                style={{
+                  background: authUser
+                    ? "linear-gradient(180deg, #1f2c14 0%, #0d150a 100%)"
+                    : "linear-gradient(180deg, #1f1a14 0%, #0c0805 100%)",
+                  border: `1px solid ${authUser ? "#5a9038" : "#3a2c20"}`,
+                  color: authUser ? "#9bd070" : "#c8b89a",
+                  fontFamily: "inherit",
+                  fontSize: 9,
+                  fontWeight: 800,
+                  letterSpacing: 1,
+                  padding: "5px 9px",
+                  borderRadius: 4,
+                  cursor: "pointer",
+                  boxShadow: "inset 0 1px 0 #ffffff15, 0 1px 3px #00000088",
+                }}
+              >
+                {syncStatus === "syncing" ? "⟳ SYNC" : authUser ? "☁ ON" : "☁ OFF"}
+              </button>
+            )}
             <div style={S.dateTag}>{sessionDate}</div>
           </div>
         </div>
         <div style={S.subtitle}>Push / Pull / Legs — Width & Mass</div>
       </div>
+
+      {supabaseEnabled && authPanelOpen && (
+        <div style={{
+          margin: "12px 14px 0",
+          padding: "14px 16px",
+          borderRadius: 8,
+          background: "linear-gradient(180deg, #1a140e 0%, #0e0a07 100%)",
+          border: "1px solid #3a2c20",
+          boxShadow: "inset 0 1px 0 #4a3a2a, 0 2px 8px #00000099",
+        }}>
+          {authUser ? (
+            <div>
+              <div style={{ fontSize: 9, color: "#a89880", letterSpacing: 1.5, fontWeight: 800, marginBottom: 6 }}>CLOUD BACKUP</div>
+              <div style={{ fontSize: 12, color: "#e8e1d3", fontWeight: 600, marginBottom: 10 }}>{authUser.email}</div>
+              <button
+                onClick={async () => { await signOut(); setAuthPanelOpen(false); setAuthMsg(""); }}
+                style={{
+                  background: "linear-gradient(180deg, #2a1414 0%, #1a0808 100%)",
+                  border: "1px solid #6a2828",
+                  color: "#e07878",
+                  fontFamily: "inherit",
+                  fontSize: 10,
+                  fontWeight: 700,
+                  letterSpacing: 1,
+                  padding: "7px 14px",
+                  borderRadius: 5,
+                  cursor: "pointer",
+                  boxShadow: "inset 0 1px 0 #6a3030, 0 1px 3px #00000088",
+                }}
+              >SIGN OUT</button>
+            </div>
+          ) : (
+            <div>
+              <div style={{ fontSize: 9, color: "#a89880", letterSpacing: 1.5, fontWeight: 800, marginBottom: 6 }}>BACK UP TO CLOUD</div>
+              <div style={{ fontSize: 10, color: "#9a8c75", marginBottom: 10, lineHeight: 1.5 }}>
+                Enter your email — we'll send you a magic link. Tap it to sign in.
+              </div>
+              <div style={{ display: "flex", gap: 6 }}>
+                <input
+                  type="email"
+                  placeholder="you@example.com"
+                  value={authEmail}
+                  onChange={(e) => setAuthEmail(e.target.value)}
+                  style={{
+                    flex: 1,
+                    background: "linear-gradient(180deg, #050302 0%, #0a0805 100%)",
+                    border: "1px solid #4a3a2a",
+                    borderRadius: 5,
+                    color: "#f5ede0",
+                    padding: "9px 10px",
+                    fontSize: 12,
+                    fontFamily: "inherit",
+                    fontWeight: 600,
+                    outline: "none",
+                    boxShadow: "inset 0 2px 4px #00000099",
+                  }}
+                />
+                <button
+                  onClick={async () => {
+                    if (!authEmail) return;
+                    setAuthMsg("Sending...");
+                    const { error } = await signInWithEmail(authEmail);
+                    setAuthMsg(error ? `Error: ${error.message || error}` : "✓ Check your email for the link");
+                  }}
+                  style={{
+                    background: "linear-gradient(180deg, #f08858 0%, #c45c3e 50%, #8a3018 100%)",
+                    border: "1px solid #6a2810",
+                    color: "#fff",
+                    fontFamily: "inherit",
+                    fontSize: 10,
+                    fontWeight: 900,
+                    letterSpacing: 1.5,
+                    padding: "9px 14px",
+                    borderRadius: 5,
+                    cursor: "pointer",
+                    boxShadow: "inset 0 1px 0 #ffaa7799, 0 0 12px #c45c3e44, 0 2px 4px #00000099",
+                    textShadow: "0 1px 2px #00000088",
+                  }}
+                >SEND</button>
+              </div>
+              {authMsg && <div style={{ fontSize: 10, color: authMsg.startsWith("✓") ? "#9bd070" : "#e87b4d", marginTop: 8, fontWeight: 600 }}>{authMsg}</div>}
+            </div>
+          )}
+        </div>
+      )}
 
       <div style={S.pageSelector}>
         <button onClick={() => setPage("tracker")} style={{ ...S.pageBtn, ...(page === "tracker" ? S.pageBtnActive : {}) }}>TRACKER</button>
