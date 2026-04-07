@@ -30,6 +30,12 @@ jobs:
 
       - run: npm ci
       - run: npm run build
+        env:
+          # Supabase anon key is a public-by-design client credential (RLS
+          # protects the actual data). Safe to commit; it is already embedded
+          # in the built JS bundle anyway.
+          VITE_SUPABASE_URL: https://vumjhozafajbuqstedeo.supabase.co
+          VITE_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ1bWpob3phZmFqYnVxc3RlZGVvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1Njk2ODgsImV4cCI6MjA5MTE0NTY4OH0.-RUNaM5MB5MTXoyN1tavsCOsiqt0N0-ARIqlxq7FzWo
 
       - uses: actions/configure-pages@v5
 
