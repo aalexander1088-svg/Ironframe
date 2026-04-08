@@ -102,23 +102,30 @@ export const DAY_WARMUP_MAP = {
 
 export const STORAGE_KEY = "workout-log-v3";
 
+function toLocalISO(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
 export function getToday() {
-  return new Date().toISOString().slice(0, 10);
+  return toLocalISO(new Date());
 }
 
 export function getWeekStart() {
-  const today = getToday();
-  const d = new Date(today + "T00:00:00Z");
-  const day = d.getUTCDay(); // 0 Sun..6 Sat
+  const d = new Date();
+  const day = d.getDay(); // 0 Sun..6 Sat
   const diff = day === 0 ? -6 : 1 - day; // shift to Monday
-  d.setUTCDate(d.getUTCDate() + diff);
-  return d.toISOString().slice(0, 10);
+  d.setDate(d.getDate() + diff);
+  return toLocalISO(d);
 }
 
 export function addDaysISO(iso, n) {
-  const d = new Date(iso + "T00:00:00Z");
-  d.setUTCDate(d.getUTCDate() + n);
-  return d.toISOString().slice(0, 10);
+  const [y, m, day] = iso.split("-").map(Number);
+  const d = new Date(y, m - 1, day);
+  d.setDate(d.getDate() + n);
+  return toLocalISO(d);
 }
 
 export function parseRepRange(reps) {
